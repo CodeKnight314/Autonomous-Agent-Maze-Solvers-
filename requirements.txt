@@ -1,0 +1,11 @@
+torch
+numpy<2
+tqdm
+gymnasium
+opencv-python
+PyYAML
+matplotlib
+wandb
+pydantic
+optuna
+panda-gym
