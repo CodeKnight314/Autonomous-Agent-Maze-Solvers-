@@ -8,4 +8,4 @@ matplotlib
 wandb
 pydantic
 optuna
-panda-gym
+gymnasium-robotics[mujoco-py]
