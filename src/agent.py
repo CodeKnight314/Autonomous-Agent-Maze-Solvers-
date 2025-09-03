@@ -913,7 +913,6 @@ class DDPG:
                 torch.cat([next_states, next_actions], dim=-1)
             )
             y = rewards + self.gamma * (1.0 - dones) * target_q
-            y = torch.clamp(y, min=-1.0 / (1.0 - self.gamma), max=0.0)
 
         current_q = self.critic(torch.cat([states, actions], dim=-1))
         td_errors = torch.abs(y - current_q).detach()
