@@ -91,7 +91,7 @@ def main():
         "--agent",
         type=str,
         required=True,
-        choices=["SAC", "TD3", "TQC", "DDPG"],
+        choices=["SAC", "TD3", "DDPG"],
         help="Agent type",
     )
     parser.add_argument(
@@ -129,7 +129,7 @@ def main():
         direction="maximize",
     )
 
-    alpha_agents = {"SAC", "TQC"}
+    alpha_agents = {"SAC"}
     use_alpha = args.agent in alpha_agents
 
     env_id = HER_MAPPING[args.env]

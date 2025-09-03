@@ -177,7 +177,7 @@ class TimeFeatureWrapperDictObs(gym.ObservationWrapper):
 def load_config(path: str, agent_type: str) -> Config:
     with open(path, "r") as f:
         cfg = yaml.safe_load(f)
-    if agent_type in ["SAC", "TQC"]:
+    if agent_type == "SAC":
         cfg["agent"] = SACAgentConfig(**cfg["agent"])
     else:
         cfg["agent"] = BaseAgentConfig(**cfg["agent"])
@@ -187,7 +187,7 @@ def load_config(path: str, agent_type: str) -> Config:
 def load_her_config(path: str, agent_type: str) -> HERConfig:
     with open(path, "r") as f:
         cfg = yaml.safe_load(f)
-    if agent_type in ["SAC", "TQC"]:
+    if agent_type == "SAC":
         cfg["agent"] = SACAgentConfig(**cfg["agent"])
     else:
         cfg["agent"] = BaseAgentConfig(**cfg["agent"])

@@ -73,7 +73,7 @@ if __name__ == "__main__":
         "--agent",
         type=str,
         default="TD3",
-        choices=["TD3", "SAC", "TQC", "DDPG"],
+        choices=["TD3", "SAC", "DDPG"],
         help="Agent type to use",
     )
     parser.add_argument(
