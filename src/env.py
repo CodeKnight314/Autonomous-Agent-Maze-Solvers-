@@ -272,6 +272,7 @@ class GoalEnvHER:
         total_frames = 0
         state, _ = self.env.reset()
         episode_rewards = np.zeros(self.num_envs, dtype=float)
+        episode_successes = np.zeros(self.num_envs, dtype=bool)
         pbar = tqdm(total=self.config.max_frames, desc="Frames")
 
         while total_frames < self.config.max_frames:
@@ -290,9 +291,23 @@ class GoalEnvHER:
 
             for i in range(self.num_envs):
                 episode_rewards[i] += rewards[i]
+
+                # Check if episode is successful at each step (more lenient threshold for AntMaze)
+                normalized_ag = self.agent.normalize_goal(next_obs_raw["achieved_goal"][i], self.g_normalize)
+                normalized_dg = self.agent.normalize_goal(next_obs_raw["desired_goal"][i], self.g_normalize)
+                distance = np.linalg.norm(normalized_ag - normalized_dg)
+
+                # Use a more lenient threshold for AntMaze environments (0.1 instead of 0.05)
+                if distance < 0.1:
+                    episode_successes[i] = True
+
                 if dones[i]:
                     self.history["reward"].append(episode_rewards[i])
+                    # Record success for this episode
+                    self.history["success_rate"].append(float(episode_successes[i]))
                     episode_rewards[i] = 0.0
+                    episode_successes[i] = False
+
                 total_frames += 1
 
                 if total_frames % self.save_freq == 0:
@@ -303,14 +318,6 @@ class GoalEnvHER:
             if self.agent.is_buffer_filled():
                 for _ in range(self.gradient_step):
                     self._update_and_log()
-
-            success_rate = np.mean(
-                np.linalg.norm(
-                    next_obs_raw["achieved_goal"] - next_obs_raw["desired_goal"], axis=1
-                )
-                < 0.05
-            )
-            self.history["success_rate"].append(success_rate)
             pbar.update(self.num_envs)
 
             self._track_best(path)
@@ -323,13 +330,16 @@ class GoalEnvHER:
             pbar.set_postfix(
                 reward=f"{self.history['reward_history'][-1]:.4f}",
                 ac_loss=f"{self.history['ac_loss_history'][-1]:.4f}",
-                success_rate=f"{success_rate}",
+                success_rate=f"{self.history['success_rate_history'][-1]:.4f}",
             )
             state = next_obs_raw
 
         pbar.close()
         self._finalise_training(path)
-        return float(np.mean(np.array(self.history["success_rate_history"])))
+        if len(self.history["success_rate_history"]) > 0:
+            return float(np.mean(np.array(self.history["success_rate_history"])))
+        else:
+            return 0.0
 
     def _train_her(self, path: str, callback):
         self._log_start("HER", path)
@@ -337,6 +347,7 @@ class GoalEnvHER:
 
         state, _ = self.env.reset()
         episode_rewards = np.zeros(self.num_envs, dtype=float)
+        episode_successes = np.zeros(self.num_envs, dtype=bool)
         total_frames = 0
 
         for epoch in tqdm(range(1, self.max_epoch + 1), desc="Epoch", position=0):
@@ -358,15 +369,6 @@ class GoalEnvHER:
                         actions
                     )
                     dones = np.logical_or(terminateds, truncateds)
-                    success_rate = np.mean(
-                        np.linalg.norm(
-                            next_obs_raw["achieved_goal"]
-                            - next_obs_raw["desired_goal"],
-                            axis=1,
-                        )
-                        < 0.05
-                    )
-                    self.history["success_rate"].append(success_rate)
 
                     self._process_step(
                         state, actions, next_obs_raw, rewards, terminateds
@@ -374,10 +376,23 @@ class GoalEnvHER:
 
                     for i in range(self.num_envs):
                         episode_rewards[i] += rewards[i]
+
+                        # Check if episode is successful at each step (more lenient threshold for AntMaze)
+                        normalized_ag = self.agent.normalize_goal(next_obs_raw["achieved_goal"][i], self.g_normalize)
+                        normalized_dg = self.agent.normalize_goal(next_obs_raw["desired_goal"][i], self.g_normalize)
+                        distance = np.linalg.norm(normalized_ag - normalized_dg)
+
+                        # Use a more lenient threshold for AntMaze environments (0.1 instead of 0.05)
+                        if distance < 0.1:
+                            episode_successes[i] = True
+
                         total_frames += 1
                         if dones[i]:
                             self.history["reward"].append(episode_rewards[i])
+                            # Record success for this episode
+                            self.history["success_rate"].append(float(episode_successes[i]))
                             episode_rewards[i] = 0.0
+                            episode_successes[i] = False
                             episode_count += 1
                     state = next_obs_raw
 
@@ -399,11 +414,14 @@ class GoalEnvHER:
                 if self.verbose:
                     self.logger.info("Resetting network weights (soft).")
 
-            if callback is not None:
+            if callback is not None and len(self.history["success_rate_history"]) > 0:
                 callback(epoch, np.mean(np.array(self.history["success_rate_history"])))
 
         self._finalise_training(path)
-        return float(np.mean(np.array(self.history["success_rate_history"])))
+        if len(self.history["success_rate_history"]) > 0:
+            return float(np.mean(np.array(self.history["success_rate_history"])))
+        else:
+            return 0.0
 
     def _log_start(self, mode: str, path: str):
         self.logger.info(f"Starting {mode} training. Weights → {path}")
